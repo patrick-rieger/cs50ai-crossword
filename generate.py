@@ -99,7 +99,10 @@ class CrosswordCreator():
         (Remove any values that are inconsistent with a variable's unary
          constraints; in this case, the length of the word.)
         """
-        raise NotImplementedError
+        for var in list(self.domains):
+            for value in list(self.domains[var]):
+                if len(value) != var.length:
+                    self.domains[var].remove(value)
 
     def revise(self, x, y):
         """
@@ -110,7 +113,15 @@ class CrosswordCreator():
         Return True if a revision was made to the domain of `x`; return
         False if no revision was made.
         """
-        raise NotImplementedError
+        revised = False
+        for valueX in list(self.domains[x]):
+            overlap = self.crossword.overlaps[x, y]
+            if overlap:
+                i, j = overlap
+                if not any(valueX[i] == valueY[j] for valueY in self.domains[y]):
+                    self.domains[x].remove(valueX)
+                    revised = True
+        return revised
 
     def ac3(self, arcs=None):
         """
@@ -121,7 +132,26 @@ class CrosswordCreator():
         Return True if arc consistency is enforced and no domains are empty;
         return False if one or more domains end up empty.
         """
-        raise NotImplementedError
+        # print(type(arcs))
+        if arcs:
+            queue = list(arcs)
+        else:
+            # queue = [(key, key2) for key in self.domains for key2 in self.domains if key != key2]
+            queue = []
+            for key in self.domains:
+                for key2 in self.domains:
+                    if key != key2:
+                        if (key2, key) not in queue:
+                            queue.append((key, key2))
+        while queue:
+            # print(queue)
+            X, Y = queue.pop()
+            if self.revise(X, Y):
+                if len(self.domains[X]) == 0:
+                    return False
+                for Z in self.crossword.neighbors(X) - {Y}:
+                    queue.append((Z, X))
+        return True
 
     def assignment_complete(self, assignment):
         """
