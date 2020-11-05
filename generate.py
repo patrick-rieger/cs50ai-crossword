@@ -158,14 +158,37 @@ class CrosswordCreator():
         Return True if `assignment` is complete (i.e., assigns a value to each
         crossword variable); return False otherwise.
         """
-        raise NotImplementedError
+        if len(assignment.keys()) != len(self.crossword.variables):
+            return False
+        for key in assignment:
+            if not assignment[key]:
+                return False
+        return True
 
     def consistent(self, assignment):
         """
         Return True if `assignment` is consistent (i.e., words fit in crossword
         puzzle without conflicting characters); return False otherwise.
         """
-        raise NotImplementedError
+        # An assignment is consistent if it satisfies all of the constraints of the problem:
+        #   all values are distinct,
+        values = list(assignment.values())
+        for value in values:
+            if values.count(value) > 1:
+                return False
+        #   every value is the correct length,
+        for variable in assignment:
+            if variable.length != len(assignment[variable]):
+                return False
+        #   and there are no conflicts between neighboring variables.
+        for variable in assignment:
+            for neighbor in self.crossword.neighbors(variable):
+                if neighbor not in assignment:
+                    continue
+                (i, j) = self.crossword.overlaps[(variable, neighbor)]
+                if assignment[variable][i] != assignment[neighbor][j]:
+                    return False
+        return True
 
     def order_domain_values(self, var, assignment):
         """
@@ -174,7 +197,13 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        raise NotImplementedError
+        ordered = []
+        if not var:
+            return ordered 
+        for a in self.domains[var]:
+            if a not in assignment.values() and a not in ordered:
+                ordered.append(a)
+        return ordered
 
     def select_unassigned_variable(self, assignment):
         """
@@ -184,7 +213,10 @@ class CrosswordCreator():
         degree. If there is a tie, any of the tied variables are acceptable
         return values.
         """
-        raise NotImplementedError
+        for var in self.crossword.variables:
+            if var not in assignment:
+                return var
+        return None
 
     def backtrack(self, assignment):
         """
@@ -195,7 +227,17 @@ class CrosswordCreator():
 
         If no assignment is possible, return None.
         """
-        raise NotImplementedError
+        if self.assignment_complete(assignment):
+            return assignment
+        var = self.select_unassigned_variable(assignment)
+        for value in self.order_domain_values(var, assignment):
+            new_assignment = assignment.copy()
+            new_assignment[var] = value
+            if self.consistent(new_assignment):
+                result = self.backtrack(new_assignment)
+                if result is not None:
+                    return result
+        return None
 
 
 def main():
