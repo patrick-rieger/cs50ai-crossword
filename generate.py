@@ -132,11 +132,9 @@ class CrosswordCreator():
         Return True if arc consistency is enforced and no domains are empty;
         return False if one or more domains end up empty.
         """
-        # print(type(arcs))
         if arcs:
             queue = list(arcs)
         else:
-            # queue = [(key, key2) for key in self.domains for key2 in self.domains if key != key2]
             queue = []
             for key in self.domains:
                 for key2 in self.domains:
@@ -144,7 +142,6 @@ class CrosswordCreator():
                         if (key2, key) not in queue:
                             queue.append((key, key2))
         while queue:
-            # print(queue)
             X, Y = queue.pop()
             if self.revise(X, Y):
                 if len(self.domains[X]) == 0:
@@ -199,11 +196,23 @@ class CrosswordCreator():
         """
         ordered = []
         if not var:
-            return ordered 
-        for a in self.domains[var]:
-            if a not in assignment.values() and a not in ordered:
-                ordered.append(a)
-        return ordered
+            return ordered
+        values_in_assignment = assignment.values()
+        for value in self.domains[var]:
+            count = 0
+            for neighbor in self.crossword.neighbors(var):
+                if neighbor in assignment:
+                    continue
+                for neighbor_value in self.domains[neighbor]:
+                    i, j = self.crossword.overlaps[var, neighbor]
+                    if value[i] != neighbor_value[j]:
+                        count+= 1
+            ordered.append((value, count))
+        
+        # Order by the second argument (the number of values they rule out for neighboring variables)
+        ordered.sort(key=lambda x: x[1])
+
+        return [value for value, i in ordered]
 
     def select_unassigned_variable(self, assignment):
         """
@@ -213,10 +222,30 @@ class CrosswordCreator():
         degree. If there is a tie, any of the tied variables are acceptable
         return values.
         """
+        variables = []
+        
         for var in self.crossword.variables:
             if var not in assignment:
-                return var
-        return None
+                variables.append((var, len(self.domains[var])))
+        
+        # Ordered by the number of remaining values in its domain
+        variables.sort(key=lambda x: x[1])
+
+        # Pick up the minimum number
+        minimum_number = variables[0][1]
+        # And make a list (minimum_vars) of variables with this minimum number
+        minimum_vars = [a[0] for a in variables if a[1] == minimum_number]
+
+        # If more variables has this minimum number, its a TIE
+        if len(minimum_vars) > 1:
+            degrees = dict()
+            for var in minimum_vars:
+                degrees[var] = len(self.crossword.neighbors(var))
+            
+            # Order the minimum_vars list by the largest degree
+            minimum_vars.sort(key=lambda x: degrees[x], reverse=True)
+        
+        return minimum_vars[0]
 
     def backtrack(self, assignment):
         """
